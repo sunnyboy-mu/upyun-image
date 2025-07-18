@@ -1,0 +1,19 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "upyun-image",
+  "compatibility_date": "2025-06-04",
+  "main": "./server/index.ts",
+  "assets": {
+    "not_found_handling": "single-page-application"
+  },
+  "vars": {
+    "BUCKET": "",
+    "OPERATOR": "",
+    "PASSWORD": "",
+    "DOMAIN": "",
+    "AUTH_CODE": "",
+  },
+  "observability": {
+    "enabled": true
+  }
+}
