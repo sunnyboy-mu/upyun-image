@@ -1,7 +1,7 @@
 <template>
-  <div class="upload-container">
+  <div class="simple-upload">
     <div
-      class="upload-area"
+      class="dropzone"
       :class="{ dragover: isDragover }"
       @dragover.prevent="handleDragOver"
       @dragleave="handleDragLeave"
@@ -11,31 +11,74 @@
       <input
         type="file"
         ref="fileInput"
-        class="hidden-input"
+        class="file-input"
         accept="image/*"
         multiple
         @change="handleFileInput"
       />
-      <div class="upload-content">
-        <div class="upload-icon">📤</div>
-        <h2>拖拽图片到此或点击上传</h2>
-        <p>支持JPEG, PNG格式</p>
+      <div class="dropzone-content">
+        <svg width="48" height="48" fill="none" viewBox="0 0 24 24">
+          <path stroke="#888" stroke-width="1.5" d="M12 16V4m0 0-4 4m4-4 4 4" />
+          <rect
+            width="20"
+            height="12"
+            x="2"
+            y="8"
+            stroke="#888"
+            stroke-width="1.5"
+            rx="3"
+          />
+        </svg>
+        <div class="dropzone-text">拖拽图片或点击上传</div>
+        <div class="dropzone-sub">支持 JPEG/PNG，粘贴图片也可上传</div>
       </div>
     </div>
 
-    <div class="preview-grid" v-if="uploadedFiles.length">
+    <div class="preview-list" v-if="uploadedFiles.length">
       <div
-        class="preview-item"
+        class="preview-row"
         v-for="(file, index) in uploadedFiles"
         :key="file.name + index"
       >
-        <img
-          :src="file.preview"
-          :alt="file.name"
-          class="preview-image"
-          @click="copyImageUrl(file.preview)"
-        />
-        <button class="delete-btn" @click="removeImage(index)">×</button>
+        <div class="preview-img-wrapper">
+          <img :src="file.preview" :alt="file.name" class="preview-img" />
+        </div>
+        <div class="preview-url">
+          <div class="file-name" :title="file.name">{{ file.name }}</div>
+          <div class="url-copy-row">
+            <div class="url-text">{{ file.preview }}</div>
+            <button
+              class="el-copy-btn"
+              @click="copyImageUrl(file.preview, index)"
+              :title="copiedIndex === index ? '已复制' : '复制链接'"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <rect x="9" y="9" width="13" height="13" rx="2" fill="white" />
+                <rect x="2" y="2" width="13" height="13" rx="2" fill="white" />
+                <rect
+                  x="9"
+                  y="9"
+                  width="13"
+                  height="13"
+                  rx="2"
+                  stroke="white"
+                  stroke-width="1.5"
+                />
+                <rect
+                  x="2"
+                  y="2"
+                  width="13"
+                  height="13"
+                  rx="2"
+                  stroke="white"
+                  stroke-width="1.5"
+                />
+                <path d="M7 7h5v5H7z" fill="#409EFF" />
+              </svg>
+            </button>
+            <span v-if="copiedIndex === index" class="copied-tip">已复制</span>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -53,6 +96,8 @@ interface UploadedFile {
 const isDragover = ref(false);
 const fileInput = ref<HTMLInputElement | null>(null);
 const uploadedFiles = ref<UploadedFile[]>([]);
+const copiedIndex = ref<number | null>(null);
+let copyTimeout: number | null = null;
 
 const handleDragOver = () => {
   isDragover.value = true;
@@ -113,6 +158,11 @@ const processFiles = (files: FileList) => {
     })
       .then((r) => r.json())
       .then((data) => {
+        if (data.code !== 200) {
+          localStorage.removeItem("auth_code");
+          alert("授权码已过期，请重新输入");
+          return;
+        }
         uploadedFiles.value.push({
           name: file.name,
           preview: data.data,
@@ -122,9 +172,14 @@ const processFiles = (files: FileList) => {
   });
 };
 
-const copyImageUrl = async (url: string) => {
+const copyImageUrl = async (url: string, index: number) => {
   try {
     await navigator.clipboard.writeText(url);
+    copiedIndex.value = index;
+    if (copyTimeout) clearTimeout(copyTimeout);
+    copyTimeout = window.setTimeout(() => {
+      copiedIndex.value = null;
+    }, 1200);
   } catch (err) {
     console.error("复制失败:", err);
   }
@@ -180,113 +235,147 @@ onUnmounted(() => {
   window.removeEventListener("paste", handlePaste);
 });
 
-const removeImage = (index: number) => {
-  uploadedFiles.value.splice(index, 1);
-};
+// 删除操作已移除
 </script>
 
 <style scoped>
-.upload-container {
-  max-width: 800px;
-  margin: 2rem auto;
-  padding: 2rem;
-  background: rgba(255, 255, 255, 0.9);
-  border-radius: 20px;
-  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
-  backdrop-filter: blur(10px);
-  background-image: linear-gradient(45deg, #f0f8ff 25%, transparent 25%),
-    linear-gradient(-45deg, #f0f8ff 25%, transparent 25%),
-    linear-gradient(45deg, transparent 75%, #f0f8ff 75%),
-    linear-gradient(-45deg, transparent 75%, #f0f8ff 75%);
-  background-size: 20px 20px;
+.simple-upload {
+  max-width: 80%;
+  margin: 56px auto;
+  padding: 40px 32px 32px 32px;
+  background: #fff;
+  border-radius: 18px;
+  box-shadow: 0 2px 16px rgba(64, 158, 255, 0.06);
 }
 
-.upload-area {
-  border: 3px dashed #90cdf4;
-  border-radius: 15px;
-  padding: 3rem 2rem;
+.dropzone {
+  border: 2.5px dashed #c0c4cc;
+  border-radius: 16px;
+  padding: 64px 0 56px 0;
+  min-height: 180px;
   text-align: center;
+  background: #f2f6fc;
   cursor: pointer;
-  transition: all 0.3s ease;
-  background: rgba(255, 255, 255, 0.5);
+  transition: border-color 0.2s, background 0.2s;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
 }
-
-.upload-area.dragover {
-  border-color: #3182ce;
-  background: rgba(144, 205, 244, 0.1);
-  transform: scale(1.02);
+.dropzone.dragover {
+  border-color: #409eff;
+  background: #ecf5ff;
 }
-
-.upload-content {
-  color: #2b6cb0;
-}
-
-.upload-icon {
-  font-size: 3rem;
-  margin-bottom: 1rem;
-}
-
-.hidden-input {
+.file-input {
   display: none;
 }
-
-.preview-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 1rem;
-  margin-top: 2rem;
+.dropzone-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+.dropzone-text {
+  font-size: 1.25rem;
+  color: #303133;
+  margin-top: 12px;
+  margin-bottom: 2px;
+}
+.dropzone-sub {
+  font-size: 1.05rem;
+  color: #909399;
 }
 
-.preview-item {
+.preview-list {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  margin-top: 40px;
+}
+.preview-row {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  background: #f2f6fc;
+  border-radius: 12px;
+  box-shadow: 0 1px 6px rgba(64, 158, 255, 0.07);
+  padding: 12px 18px;
+}
+.preview-img-wrapper {
   position: relative;
-  border-radius: 10px;
-  overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  transition: transform 0.2s;
-}
-
-.preview-item:hover {
-  transform: translateY(-5px);
-}
-
-.preview-image {
-  width: 100%;
-  height: 150px;
-  object-fit: cover;
-  display: block;
-}
-
-.delete-btn {
-  position: absolute;
-  top: 5px;
-  right: 5px;
-  width: 24px;
-  height: 24px;
-  border: none;
-  border-radius: 50%;
-  background: #f56565;
-  color: white;
-  cursor: pointer;
-  font-size: 16px;
-  line-height: 1;
+  width: 100px;
+  height: 100px;
   display: flex;
   align-items: center;
   justify-content: center;
-  opacity: 0.8;
-  transition: opacity 0.2s;
 }
-
-.delete-btn:hover {
-  opacity: 1;
+.preview-img {
+  width: 100px;
+  height: 100px;
+  object-fit: cover;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(64, 158, 255, 0.04);
 }
-
-h2 {
-  margin: 0.5rem 0;
-  color: #2b6cb0;
+.preview-url {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
-
-p {
-  margin: 0;
-  color: #718096;
+.file-name {
+  font-size: 0.98rem;
+  color: #606266;
+  font-weight: 500;
+  text-align: left;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.url-copy-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+}
+.url-text {
+  font-size: 0.97rem;
+  color: #409eff;
+  word-break: break-all;
+  background: #ecf5ff;
+  border-radius: 6px;
+  padding: 4px 8px;
+}
+.el-copy-btn {
+  background: none;
+  border: none;
+  border-radius: 6px;
+  padding: 4px 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  transition: background 0.18s;
+  box-shadow: none;
+}
+.el-copy-btn svg {
+  display: block;
+}
+.el-copy-btn svg rect,
+.el-copy-btn svg path {
+  stroke: #409eff;
+}
+.el-copy-btn svg path[fill] {
+  fill: #409eff;
+}
+.el-copy-btn:hover {
+  background: #ecf5ff;
+}
+.copied-tip {
+  color: #67c23a;
+  font-size: 0.95rem;
+  margin-left: 4px;
 }
 </style>
